@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c1322">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Egg Snake">
+<title>Egg Snake</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Barlow+Condensed:wght@500;700&display=swap">
+<style>
+/* Layout: one handset, centred. LCD on top, two soft keys, then a 3x4 number keypad. Single look by choice (a physical phone shell). */
+:root{
+  --ink:#0c1322;
+  --shell:#2757bd; --shell-lo:#173a8c; --shell-hi:#4a7ee0;
+  --bezel:#12161f;
+  --hud-fg:#e8f0ff; --hud-dim:#8d9cc0;
+  --yolk:#ffcf3f; --danger:#ff6a5c; --snake:#39ff14; --snake-head:#b6ff4d; --snake-tip:#0e4005;
+  --key-top:#f3f6fb; --key-bot:#cfd8ea; --key-lo:#8f9cb8; --key-fg:#18223a; --key-sub:#4a5878; --key-dir:#1c4fb8;
+  --f-pixel:'Silkscreen',ui-monospace,Menlo,Consolas,monospace;
+  --f-key:'Barlow Condensed','Arial Narrow',system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{min-height:100%}
+body{
+  margin:0;background:var(--ink);color:var(--hud-fg);font-family:var(--f-key);
+  padding-block:14px 24px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;justify-content:center;
+}
+.stage{width:100%;max-width:376px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.phone{
+  background:linear-gradient(160deg,var(--shell-hi),var(--shell) 40%,var(--shell-lo));
+  border-radius:44px 44px 56px 56px;padding:18px 18px 28px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.35),inset 0 -6px 14px rgba(0,0,0,.35),0 18px 40px rgba(0,0,0,.55);
+  display:flex;flex-direction:column;gap:14px;
+}
+.speaker{align-self:center;width:64px;height:6px;border-radius:3px;background:#0b1a40;box-shadow:inset 0 1px 2px rgba(0,0,0,.8)}
+.bezel{background:var(--bezel);border-radius:14px;padding:8px;box-shadow:inset 0 0 0 2px #2a3040,0 2px 0 rgba(255,255,255,.2)}
+.hud{display:grid;gap:4px;padding:2px 4px 8px;font-family:var(--f-pixel);font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.hud-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.hud-row span{white-space:nowrap}
+#hudName{color:var(--hud-dim)}
+#hudLives{color:var(--hud-dim);min-width:5ch;text-align:right}
+.tags{display:flex;gap:6px}
+.tag{padding:1px 5px;border-radius:3px;background:var(--yolk);color:#1a1a1a;font-size:9px}
+.bar{height:5px;background:#243049;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--yolk);transition:width .15s}
+.lcd{position:relative;border-radius:6px;overflow:hidden;touch-action:none;background:#000;line-height:0;user-select:none;-webkit-user-select:none}
+canvas{display:block;width:100%;height:auto;aspect-ratio:1/1}
+.banner{
+  position:absolute;left:0;right:0;bottom:10px;margin-inline:auto;width:max-content;max-width:92%;
+  padding:7px 10px;background:rgba(10,15,28,.84);color:var(--hud-fg);
+  font-family:var(--f-pixel);font-size:10px;line-height:1.6;text-align:center;white-space:pre-line;
+  border-radius:4px;pointer-events:none;
+}
+.overlay{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:18px;background:rgba(5,7,14,.9);text-align:center;line-height:1.4;
+}
+.hero{display:block;width:200px;max-width:70%;height:auto;filter:drop-shadow(0 0 4px var(--snake))}
+.hero .b{stroke:var(--snake)}
+.hero .t{stroke:var(--snake-tip)}
+.hero .h{fill:var(--snake-head)}
+.overlay h1{margin:0;font-family:var(--f-pixel);font-size:26px;font-weight:700;color:var(--yolk);letter-spacing:.04em;text-wrap:balance}
+.overlay p{margin:0;font-family:var(--f-pixel);font-size:10px;color:var(--hud-fg);white-space:pre-line;line-height:1.7}
+.picker{display:flex;align-items:center;gap:10px;font-family:var(--f-pixel);font-size:11px;color:var(--hud-fg)}
+.picker:empty{display:none}
+.picker button{width:34px;height:30px;border:0;border-radius:4px;cursor:pointer;background:#2a3a5e;color:var(--hud-fg);font-family:var(--f-pixel);font-size:12px;box-shadow:0 3px 0 #141c30}
+.picker button:active{transform:translateY(2px);box-shadow:none}
+.picker button:focus-visible{outline:3px solid var(--yolk);outline-offset:2px}
+.picker span{min-width:11ch;text-align:center}
+.ovbtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.ovbtn{
+  font-family:var(--f-pixel);font-size:11px;padding:10px 14px;border:0;border-radius:4px;cursor:pointer;
+  background:var(--yolk);color:#1a1a1a;box-shadow:0 3px 0 #b88a10;
+}
+.ovbtn.alt{background:#2a3a5e;color:var(--hud-fg);box-shadow:0 3px 0 #141c30}
+.ovbtn:active{transform:translateY(2px);box-shadow:none}
+.softs{display:flex;gap:12px;padding:0 6px}
+.soft,.key{border:0;cursor:pointer;color:var(--key-fg);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.soft{
+  flex:1;height:34px;border-radius:17px;font-family:var(--f-pixel);font-size:10px;
+  background:linear-gradient(var(--key-top),var(--key-bot));
+  box-shadow:0 3px 0 var(--key-lo),0 5px 8px rgba(0,0,0,.35);
+}
+.soft[aria-pressed="true"]{background:linear-gradient(#ffe58a,var(--yolk))}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:9px 12px;padding:0 6px}
+.key{
+  height:46px;border-radius:12px / 16px;padding:0;display:flex;align-items:center;justify-content:center;gap:6px;
+  background:linear-gradient(var(--key-top),var(--key-bot));font-family:var(--f-key);
+  box-shadow:0 3px 0 var(--key-lo),0 5px 8px rgba(0,0,0,.3);
+}
+.key b{font-size:23px;font-weight:700;line-height:1}
+.key small{font-size:11px;font-weight:500;letter-spacing:.08em;color:var(--key-sub)}
+.key.dir small{color:var(--key-dir);font-size:12px}
+.key.dead{cursor:default}
+.soft:active,.key:active{transform:translateY(2px);box-shadow:0 1px 0 var(--key-lo)}
+.soft:focus-visible,.key:focus-visible,.ovbtn:focus-visible{outline:3px solid var(--yolk);outline-offset:2px}
+.legend{margin:0;padding-inline:6px;color:var(--hud-dim);font-size:14px;line-height:1.5;text-wrap:pretty}
+.legend b{color:var(--hud-fg);font-weight:700}
+</style>
+
+<main class="stage">
+  <section class="phone" aria-label="Egg Snake handset">
+    <div class="speaker" aria-hidden="true"></div>
+    <div class="bezel">
+      <div class="hud" aria-live="polite">
+        <div class="hud-row"><span id="hudLevel">LV 1</span><span id="hudName">MEADOW</span><span id="hudLives">TRY 1</span></div>
+        <div class="hud-row"><span id="hudEggs">EGGS 0/6</span><span class="tags"><span class="tag" id="tagBot" hidden>PLAYER</span><span class="tag" id="tagFast" hidden>X2</span></span><span id="hudScore">0</span></div>
+        <div class="bar"><i id="hudBar"></i></div>
+      </div>
+      <div class="lcd" id="lcd">
+        <canvas id="board" width="480" height="480" aria-label="Snake board"></canvas>
+        <div class="banner" id="banner" hidden></div>
+        <div class="overlay" id="overlay" hidden>
+          <svg class="hero" viewBox="0 0 260 96" role="img" aria-label="A green snake beside a white egg">
+            <path class="b" d="M16 66 C 44 18, 84 18, 112 52 S 168 88, 200 50" fill="none" stroke-width="17" stroke-linecap="round"/>
+            <path class="t" d="M16 66 C 44 18, 84 18, 112 52 S 168 88, 200 50" fill="none" stroke-width="13" stroke-linecap="round" stroke-dasharray="30 400"/>
+            <path d="M216.6 30.4 L224 22 M224 22 L228.5 20 M224 22 L225.2 16.5" fill="none" stroke="#ff5a5a" stroke-width="1.8" stroke-linecap="round"/>
+            <ellipse class="h" cx="207" cy="42" rx="15" ry="12.5" transform="rotate(-50 207 42)"/>
+            <circle cx="214.8" cy="42" r="3.4" fill="#fff"/><circle cx="205.6" cy="34.4" r="3.4" fill="#fff"/>
+            <circle cx="215.6" cy="41.1" r="1.6" fill="#111"/><circle cx="206.4" cy="33.5" r="1.6" fill="#111"/>
+            <ellipse cx="243" cy="77" rx="9" ry="11.5" fill="#fff"/>
+          </svg>
+          <h1 id="ovTitle"></h1>
+          <p id="ovText"></p>
+          <div class="picker" id="picker"></div>
+          <div class="ovbtns" id="ovBtns"></div>
+        </div>
+      </div>
+    </div>
+    <div class="softs">
+      <button class="soft" id="skBot" data-key="bot" type="button" aria-pressed="false">PLAYER</button>
+      <button class="soft" id="skPause" data-key="pause" type="button">PAUSE</button>
+    </div>
+    <div class="keypad">
+      <button class="key" id="k1" data-key="bot" type="button" aria-label="1, auto player on or off"><b>1</b><small>PLAYER</small></button>
+      <button class="key dir" id="k2" data-key="up" type="button" aria-label="2, up"><b>2</b><small>&#9650;</small></button>
+      <button class="key" id="k3" data-key="fast" type="button" aria-label="3, auto player speed"><b>3</b><small>FAST</small></button>
+      <button class="key dir" id="k4" data-key="left" type="button" aria-label="4, left"><b>4</b><small>&#9664;</small></button>
+      <button class="key" id="k5" data-key="ok" type="button" aria-label="5, OK"><b>5</b><small>OK</small></button>
+      <button class="key dir" id="k6" data-key="right" type="button" aria-label="6, right"><b>6</b><small>&#9654;</small></button>
+      <button class="key" id="k7" data-key="color" type="button" aria-label="7, snake colour"><b>7</b><small>COLOR</small></button>
+      <button class="key dir" id="k8" data-key="down" type="button" aria-label="8, down"><b>8</b><small>&#9660;</small></button>
+      <button class="key dead" id="k9" type="button" tabindex="-1" aria-hidden="true"><b>9</b><small>WXYZ</small></button>
+      <button class="key dead" id="kStar" type="button" tabindex="-1" aria-hidden="true"><b>*</b></button>
+      <button class="key" id="k0" data-key="snd" type="button" aria-label="0, sound on or off"><b>0</b><small>SND</small></button>
+      <button class="key dead" id="kHash" type="button" tabindex="-1" aria-hidden="true"><b>#</b></button>
+    </div>
+  </section>
+  <p class="legend"><b>Keys:</b> 2 4 6 8 or arrow keys to steer, 5 to start or pause, 1 for the auto player, 3 to speed it up (x2, x8, x20, x50), 0 for sound, 7 for snake colour. On the menu, 4 and 6 change the start level by 1 and 2 and 8 by 10. On a phone, swipe on the screen. Steer while the auto player runs to take over.</p>
+</main>
+
+<script>
+/*LOGIC*/
+/* 20x20 board: big cells, so the snake is easy to see and steer. S is the cell scale of the level sketches. */
+const S=1, COLS=20*S, ROWS=20*S;
+const UP={x:0,y:-1}, DOWN={x:0,y:1}, LEFT={x:-1,y:0}, RIGHT={x:1,y:0};
+const DX=[0,0,-1,1], DY=[-1,1,0,0];
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const WORLDS=['MEADOW','BARS','PILLARS','GATES','STICKS','ROOMS','DIAGONAL','SERPENT','PEGS','NEON'];
+const START_X=4, START_Y=10;
+/* Every level is built from its number, so the same level is always the same. 10 worlds x 10 levels, harder inside each world. */
+function buildWalls(lv){
+  const w=Math.floor(lv/10), j=lv%10, r=mulberry32(1000+lv*7919);
+  const m=new Uint8Array(COLS*ROWS), keep=new Uint8Array(COLS*ROWS);
+  for(let y=8;y<=12;y++)for(let x=0;x<=9;x++) keep[y*COLS+x]=1;   /* lead-in for the snake stays open */
+  const ri=(a,b)=>a+Math.floor(r()*(b-a+1));
+  const inb=(x,y)=>x>=0&&y>=0&&x<COLS&&y<ROWS;
+  const put=(x,y)=>{if(inb(x,y)) m[y*COLS+x]=1;};
+  const fits=(cells,gap)=>{
+    for(const c of cells){
+      if(c[0]<1||c[1]<1||c[0]>COLS-2||c[1]>ROWS-2) return false;
+      for(let yy=c[1]-gap;yy<=c[1]+gap;yy++)for(let xx=c[0]-gap;xx<=c[0]+gap;xx++){
+        if(!inb(xx,yy)) continue;
+        if(m[yy*COLS+xx]||keep[yy*COLS+xx]) return false;
+      }
+    }
+    return true;
+  };
+  const place=(cells,gap)=>{if(!fits(cells,gap)) return false;cells.forEach(c=>put(c[0],c[1]));return true;};
+  const many=(n,make,gap)=>{for(let t=0,k=0;k<n&&t<900;t++) if(place(make(),gap)) k++;};
+  const sq=(x,y,s)=>{const a=[];for(let j2=0;j2<s;j2++)for(let i=0;i<s;i++)a.push([x+i,y+j2]);return a;};
+  const row=(y,x1,x2)=>{for(let x=x1;x<=x2;x++) put(x,y);};
+  const col=(x,y1,y2)=>{for(let y=y1;y<=y2;y++) put(x,y);};
+  const latticePillars=n=>{
+    const pts=[];
+    for(const x of [3,8,13,17]) for(const y of [2,6,10,14,17]) pts.push([x,y]);
+    for(let i=pts.length-1;i>0;i--){const k=Math.floor(r()*(i+1));[pts[i],pts[k]]=[pts[k],pts[i]];}
+    let k=0;
+    for(const p of pts){ if(k>=n) break; if(place(sq(p[0],p[1],2),1)) k++; }
+  };
+  const stick=()=>{
+    const len=ri(3,6), horiz=r()<0.5, x=ri(1,18), y=ri(1,18), a=[];
+    for(let i=0;i<len;i++) a.push(horiz?[x+i,y]:[x,y+i]);
+    return a;
+  };
+  if(w===0){
+    if(j>0&&j<5) many(3*j,()=>[[ri(1,18),ri(1,18)]],1);
+    if(j>=5){ many(12+(j-4)*2,()=>[[ri(1,18),ri(1,18)]],1); many(j-2,()=>sq(ri(1,17),ri(1,17),2),1); }
+  }else if(w===1){
+    const rowsList=[4,15,7,12,2], n=1+Math.min(4,j>>1), gw=4-(j>>2);
+    for(let i=0;i<n;i++){
+      const y=rowsList[i], x0=ri(2,5), x1=Math.min(18,x0+ri(10,13)), g0=ri(x0+2,x1-gw-1);
+      for(let x=x0;x<=x1;x++) if(x<g0||x>=g0+gw) put(x,y);
+    }
+  }else if(w===2){
+    latticePillars(2+j);
+  }else if(w===3){
+    const xs=[12,16,8,4], n=1+(j>=2?1:0)+(j>=5?1:0)+(j>=8?1:0);
+    for(let i=0;i<n;i++){
+      const dh=4, d0=ri(1,ROWS-1-dh);
+      for(let y=0;y<ROWS;y++) if(y<d0||y>=d0+dh) put(xs[i],y);
+    }
+  }else if(w===4){
+    many(3+j,stick,1);
+  }else if(w===5){
+    const f=1+(j>>2)+(j>=8?0:0), doors=2+(j%2);
+    let placed=0;
+    for(let t=0;t<600&&placed<f;t++){
+      const ww=ri(6,8), hh=ri(5,7), x=ri(1,COLS-1-ww), y=ri(1,ROWS-1-hh), cells=[];
+      for(let i=0;i<ww;i++){cells.push([x+i,y]);cells.push([x+i,y+hh-1]);}
+      for(let i=1;i<hh-1;i++){cells.push([x,y+i]);cells.push([x+ww-1,y+i]);}
+      if(!place(cells,1)) continue;
+      placed++;
+      for(let d=0;d<doors;d++){
+        const side=(d+ri(0,3))%4;
+        if(side===0){const p=ri(x+1,x+ww-3);m[y*COLS+p]=0;m[y*COLS+p+1]=0;}
+        else if(side===1){const p=ri(x+1,x+ww-3);m[(y+hh-1)*COLS+p]=0;m[(y+hh-1)*COLS+p+1]=0;}
+        else if(side===2){const p=ri(y+1,y+hh-3);m[p*COLS+x]=0;m[(p+1)*COLS+x]=0;}
+        else {const p=ri(y+1,y+hh-3);m[p*COLS+x+ww-1]=0;m[(p+1)*COLS+x+ww-1]=0;}
+      }
+    }
+  }else if(w===6){
+    const n=Math.floor(2+j*0.7);
+    many(n,()=>{
+      const len=ri(5,8), x=ri(1,18), y=ri(1,18), up=r()<0.5, a=[];
+      for(let i=0;i<len;i++) a.push([x+i,up?y-i:y+i]);
+      return a;
+    },2);
+  }else if(w===7){
+    const rowsList=[3,17,7], n=2+(j>>2>1?1:(j>>2)), gw=7-(j>>1);
+    for(let i=0;i<Math.min(3,n);i++){
+      if(i%2===0) row(rowsList[i],gw,COLS-1); else row(rowsList[i],0,COLS-1-gw);
+    }
+  }else if(w===8){
+    many(14+4*j,()=>[[ri(1,18),ri(1,18)]],1);
+  }else{
+    if(j<9){ latticePillars(3+(j>>1)); many(Math.floor(j*0.6),stick,1); }
+    else latticePillars(8);
+  }
+  /* open lead-in, then wall off any pocket the snake could never reach */
+  for(let i=0;i<m.length;i++) if(keep[i]) m[i]=0;
+  const seen=new Uint8Array(m.length), q=[START_Y*COLS+START_X];
+  seen[q[0]]=1;
+  for(let qi=0;qi<q.length;qi++){
+    const c=q[qi], x=c%COLS, y=(c/COLS)|0;
+    for(const d of [[0,-1],[0,1],[-1,0],[1,0]]){
+      const nx=x+d[0], ny=y+d[1];
+      if(!inb(nx,ny)) continue;
+      const n=ny*COLS+nx;
+      if(seen[n]||m[n]) continue;
+      seen[n]=1;q.push(n);
+    }
+  }
+  const out=[];
+  for(let i=0;i<m.length;i++) if(m[i]||!seen[i]) out.push([i%COLS,(i/COLS)|0]);
+  return out;
+}
+const LEVELS=[];
+for(let i=0;i<100;i++){
+  LEVELS.push({name:WORLDS[Math.floor(i/10)]+' '+(i%10+1),target:i===99?250:200,ms:Math.round(180-i*1.1),walls:()=>buildWalls(i)});
+}
+function makeLevel(lv){
+  const L=LEVELS[lv], walls=new Uint8Array(COLS*ROWS);
+  L.walls().forEach(c=>{walls[c[1]*COLS+c[0]]=1;});
+  const g={lv,walls,target:L.target,ms:L.ms,eaten:0,sinceEgg:0,
+    snake:[{x:4*S,y:10*S,c:0},{x:4*S-1,y:10*S,c:1},{x:4*S-2,y:10*S,c:0}],dir:RIGHT,queue:[],egg:null};
+  placeEgg(g);
+  return g;
+}
+function placeEgg(g){
+  const occ=new Uint8Array(COLS*ROWS);
+  g.snake.forEach(s=>{occ[s.y*COLS+s.x]=1;});
+  const free=[];
+  for(let i=0;i<occ.length;i++) if(!occ[i]&&!g.walls[i]) free.push(i);
+  if(!free.length){g.egg=null;return;}
+  /* fair play: prefer a spot the snake can eat without trapping itself */
+  let i=free[Math.floor(Math.random()*free.length)];
+  for(let t=0;t<80;t++){
+    const c=free[Math.floor(Math.random()*free.length)];
+    if(eggIsFair(g,c%COLS,(c/COLS)|0)){i=c;break;}
+  }
+  g.egg={x:i%COLS,y:(i/COLS)|0};
+}
+function eggIsFair(g,x,y){
+  const sn=g.snake, p=bfsPath(g,sn,x,y);
+  if(!p) return false;
+  const v=p.slice().reverse().concat(sn).slice(0,sn.length+1);
+  const t=v[v.length-1];
+  return !!bfsPath(g,v,t.x,t.y);
+}
+function stepGame(g){
+  while(g.queue.length){
+    const d=g.queue.shift();
+    const rev=d.x===-g.dir.x&&d.y===-g.dir.y, same=d.x===g.dir.x&&d.y===g.dir.y;
+    if(!rev&&!same){g.dir=d;break;}
+  }
+  const h=g.snake[0], nx=h.x+g.dir.x, ny=h.y+g.dir.y;
+  if(nx<0||ny<0||nx>=COLS||ny>=ROWS||g.walls[ny*COLS+nx]) return 'dead';
+  const eat=!!g.egg&&g.egg.x===nx&&g.egg.y===ny;
+  const len=g.snake.length;
+  for(let i=0;i<len-(eat?0:1);i++){
+    const s=g.snake[i];
+    if(s.x===nx&&s.y===ny) return 'dead';
+  }
+  g.snake.unshift({x:nx,y:ny,c:h.c^1});
+  if(!eat){g.oldTail=g.snake.pop();g.sinceEgg++;return 'ok';}
+  g.oldTail=null;g.eaten++;g.sinceEgg=0;
+  if(g.eaten>=g.target){g.egg=null;return 'clear';}
+  placeEgg(g);
+  return 'egg';
+}
+/* Bot: shortest path to the egg that respects where the tail will have moved by then. */
+function bfsPath(g,snake,tx,ty,avoid){
+  const N=COLS*ROWS, L=snake.length, idx=new Int16Array(N).fill(-1);
+  for(let i=0;i<L;i++) idx[snake[i].y*COLS+snake[i].x]=i;
+  const prev=new Int16Array(N).fill(-2), dist=new Int16Array(N);
+  const s0=snake[0].y*COLS+snake[0].x, target=ty*COLS+tx;
+  prev[s0]=-1;
+  const q=[s0];
+  for(let qi=0;qi<q.length;qi++){
+    const c=q[qi];
+    if(c===target){
+      const out=[]; let k=c;
+      while(k!==s0){out.push({x:k%COLS,y:(k/COLS)|0});k=prev[k];}
+      return out.reverse();
+    }
+    const x=c%COLS, y=(c/COLS)|0;
+    for(let d=0;d<4;d++){
+      const nx=x+DX[d], ny=y+DY[d];
+      if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
+      if(avoid&&nx===avoid.x&&ny===avoid.y&&!(nx===tx&&ny===ty)) continue;
+      const n=ny*COLS+nx;
+      if(prev[n]!==-2||g.walls[n]) continue;
+      const dd=dist[c]+1;
+      if(idx[n]>=0&&dd<=L-1-idx[n]) continue;
+      prev[n]=c;dist[n]=dd;q.push(n);
+    }
+  }
+  return null;
+}
+function floodSize(g,snake,sx,sy){
+  const N=COLS*ROWS, occ=new Uint8Array(N);
+  for(let i=0;i<snake.length-1;i++) occ[snake[i].y*COLS+snake[i].x]=1;
+  const seen=new Uint8Array(N), q=[sy*COLS+sx];
+  seen[q[0]]=1;
+  for(let qi=0;qi<q.length;qi++){
+    const c=q[qi], x=c%COLS, y=(c/COLS)|0;
+    for(let d=0;d<4;d++){
+      const nx=x+DX[d], ny=y+DY[d];
+      if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
+      const n=ny*COLS+nx;
+      if(seen[n]||occ[n]||g.walls[n]) continue;
+      seen[n]=1;q.push(n);
+    }
+  }
+  return q.length;
+}
+function botDir(g){
+  const sn=g.snake, h=sn[0];
+  const dirTo=c=>({x:c.x-h.x,y:c.y-h.y});
+  if(g.egg){
+    const p=bfsPath(g,sn,g.egg.x,g.egg.y);
+    if(p){
+      const v=p.slice().reverse().concat(sn).slice(0,sn.length+1);
+      const t=v[v.length-1];
+      /* if the safe route has not opened for a long time, take the risk instead of circling forever */
+      if(g.sinceEgg>6000||bfsPath(g,v,t.x,t.y)) return dirTo(p[0]);
+    }
+  }
+  /* no safe route to the egg yet: take the safe step (tail stays reachable) that gets closest to it */
+  const occ=new Uint8Array(COLS*ROWS);
+  for(let i=0;i<sn.length-1;i++) occ[sn[i].y*COLS+sn[i].x]=1;
+  let pick=null, pickCost=1e9;
+  const safeMoves=[];
+  for(const d of [UP,DOWN,LEFT,RIGHT]){
+    const nx=h.x+d.x, ny=h.y+d.y;
+    if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
+    const n=ny*COLS+nx;
+    if(g.walls[n]||occ[n]) continue;
+    const eats=!!g.egg&&g.egg.x===nx&&g.egg.y===ny;
+    const v=[{x:nx,y:ny}].concat(eats?sn:sn.slice(0,sn.length-1));
+    const t=v[v.length-1];
+    /* the tail route must not run over the egg: eating it on the way would make the snake longer and break the plan */
+    if(!(v.length===1||bfsPath(g,v,t.x,t.y,eats?null:g.egg))) continue;
+    let cost=1000+Math.abs(g.egg?g.egg.x-nx:0)+Math.abs(g.egg?g.egg.y-ny:0);
+    if(g.egg){const p2=bfsPath(g,v,g.egg.x,g.egg.y);if(p2) cost=p2.length;}
+    safeMoves.push(d);
+    if(cost<pickCost){pickCost=cost;pick=d;}
+  }
+  /* circling for too long: mix in random safe steps to break out of the loop */
+  if(safeMoves.length&&g.sinceEgg>200&&Math.random()<0.5) return safeMoves[Math.floor(Math.random()*safeMoves.length)];
+  if(pick) return pick;
+  const tail=sn[sn.length-1];
+  /* chase the tail, but never step on the egg by accident: eating it would stop the tail from moving */
+  const pt=bfsPath(g,sn,tail.x,tail.y,g.egg);
+  if(pt) return dirTo(pt[0]);
+  let best=null, bestA=-1;
+  for(let i=0;i<sn.length-1;i++) occ[sn[i].y*COLS+sn[i].x]=1;
+  for(const d of [UP,DOWN,LEFT,RIGHT]){
+    const nx=h.x+d.x, ny=h.y+d.y;
+    if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
+    const n=ny*COLS+nx;
+    if(g.walls[n]||occ[n]) continue;
+    const a=floodSize(g,sn,nx,ny);
+    if(a>bestA){bestA=a;best=d;}
+  }
+  return best||g.dir;
+}
+/*ENDLOGIC*/
+
+/* plain black board, white egg, snake tiles alternate neon green and black-green; only the wall colour changes from level to level */
+const HUES=[275,190,28,315,38,220,350,262,12,330];   /* one hue per world, none of them green */
+function wallColour(lv){return 'hsl('+(HUES[Math.floor(lv/10)]+(lv%10)*2)+',100%,62%)';}
+const SNAKES=[{body:'#39ff14',head:'#b6ff4d'},{body:'#4a7dff',head:'#86a8ff'},{body:'#ffd23a',head:'#ffe680'},{body:'#ff5fa2',head:'#ff94c2'}];
+const COL={bg:'#000000',body:SNAKES[0].body,head:SNAKES[0].head,tip:'#0e4005',fade:[]};
+let snakeIdx=0;
+function mixHex(a,b,t){
+  const pa=[1,3,5].map(i=>parseInt(a.substr(i,2),16)), pb=[1,3,5].map(i=>parseInt(b.substr(i,2),16));
+  return '#'+pa.map((v,i)=>Math.round(v+(pb[i]-v)*t).toString(16).padStart(2,'0')).join('');
+}
+function applySnakeColour(i){
+  snakeIdx=((i%SNAKES.length)+SNAKES.length)%SNAKES.length;
+  const c=SNAKES[snakeIdx];
+  COL.body=c.body;COL.head=c.head;
+  COL.tip=mixHex(c.body,'#000000',0.75);
+  COL.fade=[0,1,2,3,4,5,6].map(j=>mixHex(c.body,COL.tip,1-j/6));   /* j=0 is the very end of the tail */
+  document.documentElement.style.setProperty('--snake-tip',COL.tip);
+  document.documentElement.style.setProperty('--snake',c.body);
+  document.documentElement.style.setProperty('--snake-head',c.head);
+  try{localStorage.setItem('eggsnake-colour',String(snakeIdx));}catch(e){}
+}
+const $=id=>document.getElementById(id);
+const cv=$('board'), X=cv.getContext('2d'), C=24;
+let pxScale=1;
+const wallCache={};
+function fitCanvas(){
+  const css=cv.clientWidth||320, dpr=window.devicePixelRatio||1;
+  const cell=Math.max(12,Math.min(72,Math.round(css*dpr/COLS)));
+  if(cv.width===cell*COLS) return;
+  cv.width=cv.height=cell*COLS;
+  pxScale=cell/C;
+  for(const k in wallCache) delete wallCache[k];
+}
+window.addEventListener('resize',fitCanvas);
+if(window.ResizeObserver) new ResizeObserver(fitCanvas).observe(cv);
+const lcd=$('lcd'), banner=$('banner'), overlay=$('overlay');
+const reduceMotion=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let state='menu', g=null, lv=0, score=0, lvScore=0, tries=1, best=0, curInterval=100;
+let bot=false, fast=0, sound=true, timer=0, acc=0, last=0;
+const FAST_MULT=[1,2,8,20,50];
+
+try{best=parseInt(localStorage.getItem('eggsnake-best')||'0',10)||0;}catch(e){}
+function saveBest(){
+  if(score>best) best=score;
+  try{localStorage.setItem('eggsnake-best',String(best));}catch(e){}
+}
+
+/* sound */
+let ac=null;
+function initAudio(){
+  if(ac) return;
+  try{ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){ac=null;}
+}
+function beep(f,d,type,delay){
+  if(!sound||!ac) return;
+  try{
+    const o=ac.createOscillator(), gn=ac.createGain(), t=ac.currentTime+(delay||0);
+    o.type=type||'square';o.frequency.value=f;
+    gn.gain.setValueAtTime(0.04,t);gn.gain.exponentialRampToValueAtTime(0.0001,t+d);
+    o.connect(gn);gn.connect(ac.destination);o.start(t);o.stop(t+d+0.03);
+  }catch(e){}
+}
+
+/* overlay + banner */
+function showOverlay(title,text,btns){
+  $('ovTitle').textContent=title;
+  $('ovText').textContent=text;
+  $('picker').replaceChildren();
+  const box=$('ovBtns');
+  box.replaceChildren();
+  btns.forEach((b,i)=>{
+    const el=document.createElement('button');
+    el.id='ovBtn'+i;el.type='button';
+    el.className='ovbtn'+(b.alt?' alt':'');
+    el.textContent=b.label;
+    el.addEventListener('click',b.fn);
+    box.appendChild(el);
+  });
+  overlay.hidden=false;
+}
+function showBanner(t){banner.textContent=t;banner.hidden=false;}
+function go(s){
+  state=s;acc=0;
+  if(s==='play'||s==='menu'||s==='pause'||s==='over'||s==='win') banner.hidden=true;
+}
+
+/* game flow */
+let startLv=0;
+try{startLv=Math.min(LEVELS.length-1,Math.max(0,parseInt(localStorage.getItem('eggsnake-level')||'0',10)||0));}catch(e){}
+function saveLevel(n){try{localStorage.setItem('eggsnake-level',String(n));}catch(e){}}
+function attract(){g=makeLevel(startLv);}
+function changeStart(d){
+  startLv=Math.min(LEVELS.length-1,Math.max(0,startLv+d));
+  attract();updatePicker();updateHud();
+}
+function updatePicker(){const l=$('pickLabel');if(l) l.textContent='LEVEL '+(startLv+1)+'/'+LEVELS.length;}
+function showMenu(){
+  showOverlay('EGG SNAKE',LEVELS.length+' levels. Eat all the eggs.\nBest '+best,[
+    {label:'START',fn:()=>startGame(false)},
+    {label:'PLAYER PLAY',alt:true,fn:()=>startGame(true)}
+  ]);
+  const pk=$('picker');
+  const mk=(id,txt,label,d)=>{const b=document.createElement('button');b.id=id;b.type='button';b.textContent=txt;b.setAttribute('aria-label',label);b.addEventListener('click',()=>changeStart(d));return b;};
+  const lab=document.createElement('span');lab.id='pickLabel';
+  pk.append(mk('pickDown10','<<','10 levels back',-10),mk('pickDown','<','previous level',-1),lab,mk('pickUp','>','next level',1),mk('pickUp10','>>','10 levels forward',10));
+  updatePicker();
+}
+function toMenu(){bot=false;attract();go('menu');showMenu();updateHud();}
+function beginLevel(){
+  g=makeLevel(lv);
+  if(bot){go('play');}
+  else{go('ready');showBanner('LEVEL '+(lv+1)+' · '+LEVELS[lv].name+'\nPRESS 2 4 6 8 OR SWIPE');}
+  updateHud();
+}
+function startGame(useBot){
+  initAudio();
+  bot=useBot;lv=startLv;score=0;lvScore=0;tries=1;
+  overlay.hidden=true;
+  beginLevel();
+}
+function pauseGame(){
+  if(state!=='play') return;
+  go('pause');
+  showOverlay('PAUSED','Level '+(g.lv+1)+' · '+LEVELS[g.lv].name,[
+    {label:'RESUME',fn:resumeGame},
+    {label:'MENU',alt:true,fn:()=>{startLv=g.lv;saveLevel(startLv);toMenu();}}
+  ]);
+}
+function resumeGame(){overlay.hidden=true;go('play');}
+function afterTimer(){
+  if(state==='clear'){
+    lv++;saveBest();lvScore=score;tries=1;
+    startLv=lv>=LEVELS.length?0:lv;saveLevel(startLv);
+    if(lv>=LEVELS.length){
+      go('win');
+      showOverlay('ALL CLEAR','All '+LEVELS.length+' levels done!\nScore '+score+'\nBest '+best,[
+        {label:'AGAIN',fn:()=>startGame(bot)},
+        {label:'MENU',alt:true,fn:toMenu}
+      ]);
+    }else beginLevel();
+  }else if(state==='dying'){
+    beginLevel();
+  }
+  updateHud();
+}
+function tick(){
+  if(state==='menu'||bot) g.queue=[botDir(g)];
+  const r=stepGame(g);
+  if(state==='menu'){if(r==='dead'||r==='clear') attract();return;}
+  if(r==='egg'){
+    score+=10*(g.lv+1);
+    beep(880,0.07);beep(1175,0.07,'square',0.06);
+  }else if(r==='clear'){
+    score+=60*(g.lv+1);
+    go('clear');timer=1700;
+    showBanner('LEVEL '+(g.lv+1)+' CLEAR\n+'+(60*(g.lv+1))+' BONUS');
+    [523,659,784,1047].forEach((f,i)=>beep(f,0.12,'square',i*0.1));
+  }else if(r==='dead'){
+    tries++;score=lvScore;
+    go('dying');timer=1000;
+    showBanner('OUCH!\nSAME LEVEL AGAIN');
+    beep(160,0.35,'sawtooth');
+  }
+  if(score>best) best=score;
+  updateHud();
+}
+function updateHud(){
+  if(!g) return;
+  $('hudLevel').textContent='LV '+(g.lv+1);
+  $('hudName').textContent=LEVELS[g.lv].name;
+  $('hudLives').textContent=state==='menu'?'':'TRY '+tries;
+  $('hudEggs').textContent='EGGS '+g.eaten+'/'+g.target;
+  $('hudScore').textContent=state==='menu'?'BEST '+best:String(score);
+  $('hudBar').style.width=(100*g.eaten/g.target)+'%';
+  $('tagBot').hidden=!(bot&&state!=='menu');
+  $('tagFast').hidden=!(bot&&fast>0&&state!=='menu');
+  $('tagFast').textContent='X'+FAST_MULT[fast];
+  $('skBot').setAttribute('aria-pressed',bot?'true':'false');
+}
+
+/* input */
+function steer(d){
+  if(!g||state==='menu'||state==='pause'||state==='over'||state==='win'||state==='clear'||state==='dying') return;
+  if(bot){bot=false;updateHud();}
+  const ref=g.queue.length?g.queue[g.queue.length-1]:g.dir;
+  if(d.x===ref.x&&d.y===ref.y) return;
+  if(d.x===-ref.x&&d.y===-ref.y) return;
+  if(state==='ready'){g.queue=[d];go('play');return;}
+  if(g.queue.length<2) g.queue.push(d);
+}
+function toggleBot(){
+  if(state==='menu'){startGame(true);return;}
+  if(state==='over'||state==='win') return;
+  bot=!bot;
+  if(bot&&state==='ready') go('play');
+  updateHud();
+}
+function press(k){
+  initAudio();
+  if(state==='menu'&&(k==='left'||k==='right'||k==='up'||k==='down')){changeStart(k==='left'?-1:k==='right'?1:k==='up'?10:-10);return;}
+  switch(k){
+    case 'up':steer(UP);break;
+    case 'down':steer(DOWN);break;
+    case 'left':steer(LEFT);break;
+    case 'right':steer(RIGHT);break;
+    case 'ok':
+      if(state==='menu') startGame(false);
+      else if(state==='ready') go('play');
+      else if(state==='play') pauseGame();
+      else if(state==='pause') resumeGame();
+      else if(state==='over'||state==='win') startGame(bot);
+      break;
+    case 'pause':
+      if(state==='play') pauseGame();
+      else if(state==='pause') resumeGame();
+      break;
+    case 'bot':toggleBot();break;
+    case 'fast':fast=(fast+1)%FAST_MULT.length;updateHud();break;
+    case 'snd':sound=!sound;if(sound)beep(988,0.08);break;
+    case 'color':applySnakeColour(snakeIdx+1);break;
+  }
+}
+document.querySelectorAll('[data-key]').forEach(b=>{
+  b.addEventListener('pointerdown',e=>{e.preventDefault();press(b.dataset.key);});
+  b.addEventListener('click',e=>{if(e.detail===0) press(b.dataset.key);});
+});
+const KEYMAP={ArrowUp:'up',w:'up',W:'up','8':'up',ArrowDown:'down',s:'down',S:'down','2':'down',
+  ArrowLeft:'left',a:'left',A:'left','4':'left',ArrowRight:'right',d:'right',D:'right','6':'right',
+  '5':'ok',' ':'ok',Enter:'ok',p:'pause',P:'pause',Escape:'pause',b:'bot',B:'bot','1':'bot',f:'fast',F:'fast','3':'fast','0':'snd',m:'snd','7':'color',c:'color',C:'color'};
+/* keypad digits: 8 is up and 2 is down on a keyboard numpad layout, but on the phone keypad 2 is up, so remap digits to the phone layout */
+KEYMAP['2']='up';KEYMAP['8']='down';
+window.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  const k=KEYMAP[e.key];
+  if(!k) return;
+  if(e.target&&e.target.tagName==='BUTTON'&&(e.key==='Enter'||e.key===' ')) return;
+  e.preventDefault();
+  press(k);
+});
+let sx=0, sy=0, swiping=false;
+lcd.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;sx=e.clientX;sy=e.clientY;swiping=true;});
+lcd.addEventListener('pointermove',e=>{
+  if(!swiping) return;
+  const dx=e.clientX-sx, dy=e.clientY-sy;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<22) return;
+  press(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'));
+  sx=e.clientX;sy=e.clientY;
+});
+['pointerup','pointercancel','pointerleave'].forEach(n=>lcd.addEventListener(n,()=>{swiping=false;}));
+document.addEventListener('visibilitychange',()=>{if(document.hidden) pauseGame();});
+
+/* drawing */
+function rr(x,y,w,h,r,fill){
+  X.beginPath();
+  X.moveTo(x+r,y);X.arcTo(x+w,y,x+w,y+h,r);X.arcTo(x+w,y+h,x,y+h,r);X.arcTo(x,y+h,x,y,r);X.arcTo(x,y,x+w,y,r);
+  X.closePath();X.fillStyle=fill;X.fill();
+}
+function dot(x,y,r,fill){X.beginPath();X.arc(x,y,r,0,Math.PI*2);X.fillStyle=fill;X.fill();}
+function drawEgg(e,t){
+  const px=e.x*C+C/2, py=e.y*C+C/2;
+  const p=reduceMotion?1:1+0.06*Math.sin(t/180);
+  X.save();
+  X.shadowColor='rgba(255,255,255,.8)';X.shadowBlur=12;
+  const gr=X.createRadialGradient(px-3,py-5,2,px,py,13);
+  gr.addColorStop(0,'#ffffff');gr.addColorStop(1,'#dedede');
+  X.beginPath();X.ellipse(px,py,8.6*p,10.8*p,0,0,Math.PI*2);X.fillStyle=gr;X.fill();
+  X.restore();
+}
+/* the body is a thick rounded line through the cell centres; the head and tail slide between cells during each step */
+function snakePath(f){
+  const sn=g.snake, n=sn.length, pts=[];
+  const cx=c=>c.x*C+C/2, cy=c=>c.y*C+C/2;
+  const s0=sn[0], s1=sn[1]||sn[0];
+  pts.push([cx(s1)+(cx(s0)-cx(s1))*f, cy(s1)+(cy(s0)-cy(s1))*f]);
+  for(let i=1;i<n;i++) pts.push([cx(sn[i]),cy(sn[i])]);
+  const ot=g.oldTail;
+  if(ot){const last=sn[n-1];pts.push([cx(last)+(cx(ot)-cx(last))*(1-f), cy(last)+(cy(ot)-cy(last))*(1-f)]);}
+  return pts;
+}
+function drawSnake(f,blink){
+  if(blink) return;
+  const pts=snakePath(f), m=pts.length, W=C*0.74;
+  X.lineCap='round';X.lineJoin='round';X.strokeStyle=COL.body;
+  const tap=Math.min(6,m-2);
+  X.lineWidth=W;
+  X.beginPath();X.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<=m-1-tap;i++) X.lineTo(pts[i][0],pts[i][1]);
+  X.stroke();
+  for(let i=m-tap;i<m;i++){
+    const k=m-1-i;
+    X.lineWidth=W*(0.55+0.45*Math.min(1,k/tap));
+    X.strokeStyle=COL.fade[Math.min(6,Math.round(k*6/tap))];
+    X.beginPath();X.moveTo(pts[i-1][0],pts[i-1][1]);X.lineTo(pts[i][0],pts[i][1]);X.stroke();
+  }
+  const hx=pts[0][0], hy=pts[0][1], d=g.dir, qx=-d.y, qy=d.x;
+  dot(hx,hy,C*0.58,COL.head);
+  for(const k of [-1,1]){
+    const ex=hx+d.x*4+qx*k*6.2, ey=hy+d.y*4+qy*k*6.2;
+    dot(ex,ey,5.2,'#ffffff');dot(ex+d.x*1.6,ey+d.y*1.6,2.7,'#111111');
+  }
+}
+/* walls are drawn once per level as a neon outline with a soft glow, then copied each frame */
+function wallLayer(lv){
+  if(wallCache[lv]) return wallCache[lv];
+  const c=document.createElement('canvas');c.width=cv.width;c.height=cv.height;
+  const k=c.getContext('2d'), col=wallColour(lv), gw=g.walls;
+  k.setTransform(pxScale,0,0,pxScale,0,0);
+  const isW=(x,y)=>x>=0&&y>=0&&x<COLS&&y<ROWS&&gw[y*COLS+x]===1;
+  k.fillStyle=col;k.globalAlpha=0.16;
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(isW(x,y)) k.fillRect(x*C,y*C,C,C);
+  k.globalAlpha=1;k.strokeStyle=col;k.lineWidth=3;k.lineCap='round';
+  k.shadowColor=col;k.shadowBlur=10;
+  k.beginPath();
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+    if(!isW(x,y)) continue;
+    const l=x*C+1.5, r=x*C+C-1.5, t=y*C+1.5, b=y*C+C-1.5;
+    if(!isW(x,y-1)){k.moveTo(l,t);k.lineTo(r,t);}
+    if(!isW(x,y+1)){k.moveTo(l,b);k.lineTo(r,b);}
+    if(!isW(x-1,y)){k.moveTo(l,t);k.lineTo(l,b);}
+    if(!isW(x+1,y)){k.moveTo(r,t);k.lineTo(r,b);}
+  }
+  k.stroke();
+  k.strokeRect(1.5,1.5,COLS*C-3,ROWS*C-3);
+  wallCache[lv]=c;
+  return c;
+}
+function draw(t){
+  if(!g) return;
+  X.setTransform(pxScale,0,0,pxScale,0,0);
+  X.fillStyle=COL.bg;X.fillRect(0,0,COLS*C,ROWS*C);
+  X.drawImage(wallLayer(g.lv),0,0,COLS*C,ROWS*C);
+  if(g.egg) drawEgg(g.egg,t);
+  const f=(state==='play'||state==='menu')?Math.max(0,Math.min(1,acc/curInterval)):1;
+  drawSnake(f,state==='dying'&&Math.floor(t/130)%2===0);
+}
+function frame(ts){
+  const dt=Math.min(100,ts-(last||ts));last=ts;
+  if(state==='menu'||state==='play'){
+    const interval=state==='menu'?85:g.ms/(bot?FAST_MULT[fast]:1);
+    curInterval=interval;
+    acc+=dt;
+    while(acc>=interval&&(state==='menu'||state==='play')){acc-=interval;tick();}
+  }else if(state==='clear'||state==='dying'){
+    timer-=dt;
+    if(timer<=0) afterTimer();
+  }
+  draw(ts);
+  requestAnimationFrame(frame);
+}
+try{applySnakeColour(parseInt(localStorage.getItem('eggsnake-colour')||'0',10)||0);}catch(e){applySnakeColour(0);}
+fitCanvas();
+attract();
+showMenu();
+updateHud();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
